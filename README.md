@@ -12,8 +12,8 @@ Windows 11, Intel i5-12450H, NVIDIA RTX 3050 Laptop GPU (4 GB VRAM), 16 GB RAM.
 - Local audio extraction with FFmpeg.
 - Transcription with Faster-Whisper.
 - Plain UTF-8 TXT output only; no timestamps or subtitle files.
-- Optional Hindi-to-Roman transliteration while preserving existing Latin/English text.
-- No cloud API or audio upload. Model downloads are required once.
+- Hindi Devanagari is romanized locally; existing English/Latin words are preserved.
+- No cloud API or audio upload. Model weights are downloaded once.
 
 ## Prerequisites
 
@@ -43,7 +43,7 @@ Or set up manually:
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ## Run
@@ -60,7 +60,7 @@ python transcribe.py "D:\Videos\lecture.mp4" --output "D:\Transcripts\lecture.tx
 
 ## Model and hardware settings
 
-Default model is `large-v3-turbo`, CUDA, `int8_float16`, batch size 1. A 4 GB GPU may still run out of VRAM depending on runtime libraries and other GPU use. Try the smaller model:
+Default model is `large-v3-turbo`, CUDA, `int8_float16`, batch size 1. A 4 GB GPU may still run out of VRAM depending on runtime libraries and other GPU use. If loading the default model runs out of memory, try:
 ```powershell
 python transcribe.py "D:\Videos\lecture.mp4" --model medium --batch-size 1
 ```
@@ -80,13 +80,15 @@ For mostly English audio:
 python transcribe.py "D:\Videos\lecture.mp4" --language en
 ```
 
-Leave language unset for automatic detection. Whisper selects one main language; arbitrary sentence-level Hindi-English switching is not perfectly recognized.
+Leave language unset for automatic detection. Whisper's language selection is not perfect for sentence-by-sentence code-switching between Hindi and English. Automatic detection is a sensible starting point for Hinglish.
 
 ## Roman Hinglish output
 
-Whisper may transcribe Hindi in Devanagari. The optional IndicXlit package transliterates Devanagari Hindi to Latin while leaving existing English/Latin spans intact. This is transliteration, not translation. Proper nouns, technical vocabulary and code-switched speech may need manual correction.
+Whisper may output Hindi in Devanagari. Transcripter uses **uroman** to convert Devanagari text into Latin script and leaves existing ASCII/English text intact. This is script conversion, not translation. It is a lightweight romanizer and does not require Fairseq, PyTorch, a separate GPU model, or a cloud API.
 
-If you want original script instead:
+Romanization is not guaranteed to match every person's preferred informal spelling (for example, "hai"/"he"). Proper nouns, technical terms, and code-switched phrases may need manual correction.
+
+To retain Whisper's original script instead:
 ```powershell
 python transcribe.py "D:\Videos\lecture.mp4" --romanize none
 ```
@@ -99,9 +101,9 @@ Two-hour files are supported. FFmpeg extracts a temporary 16 kHz mono WAV; Faste
 
 - **FFmpeg not found:** install it, add its `bin` folder to PATH and reopen PowerShell.
 - **CUDA/cuDNN DLL error:** Faster-Whisper uses CTranslate2 and needs compatible CUDA/cuDNN runtime DLLs. Follow the CTranslate2 installation guidance for the installed version. An NVIDIA display driver alone may not be sufficient.
-- **CUDA out of memory:** use `--model medium --batch-size 1`; if that fails use CPU INT8.
-- **IndicXlit missing:** install the optional dependency in requirements and rerun; without it, the text stays in its original script.
+- **CUDA out of memory:** use `--model medium --batch-size 1`; if that fails, use CPU INT8.
+- **uroman import error:** activate `.venv` and run `python -m pip install -r requirements.txt`.
 
 ## Privacy
 
-Processing is local. No audio is uploaded and no API key is used. First launch downloads model weights and transliteration resources; subsequent runs can work offline with those resources cached.
+Audio processing and romanization are local. No audio is uploaded and no API key is used. The first run downloads the Whisper model weights; subsequent runs can use the cached model offline.
