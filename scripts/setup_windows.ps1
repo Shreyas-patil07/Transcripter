@@ -6,29 +6,43 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-Write-Host "== Transcripter Windows setup ==" -ForegroundColor Cyan
+Write-Host "== Transcripter setup ==" -ForegroundColor Cyan
 
-py -3.11 --version
-if ($LASTEXITCODE -ne 0) {
-    throw "Python 3.11 x64 is required. Install it and enable Add Python to PATH."
+if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
+    throw "Python launcher not found. Install Python 3.11 x64 and enable Add Python to PATH."
 }
+
+$PythonVersion = & py -3.11 -c "import struct,sys; print(sys.version.split()[0] + (' x64' if struct.calcsize('P') == 8 else ' x86'))"
+if ($LASTEXITCODE -ne 0) {
+    throw "Python 3.11 was not found. Install Python 3.11 x64."
+}
+if ($PythonVersion -notmatch "x64$") {
+    throw "64-bit Python is required. Detected: $PythonVersion"
+}
+Write-Host "Python: $PythonVersion" -ForegroundColor Green
 
 if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
-    throw "FFmpeg not found. Install it with: winget install Gyan.FFmpeg"
+    throw "FFmpeg was not found. Install it with: winget install Gyan.FFmpeg"
 }
-ffmpeg -version | Select-Object -First 1
+Write-Host (ffmpeg -version | Select-Object -First 1)
 
-if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
+if (-not $CpuOnly) {
+    if (-not (Get-Command nvidia-smi -ErrorAction SilentlyContinue)) {
+        throw "NVIDIA driver/GPU not detected. Use -CpuOnly for CPU mode."
+    }
     nvidia-smi
-} elseif (-not $CpuOnly) {
-    Write-Warning "nvidia-smi not found. Consider rerunning with -CpuOnly."
 }
 
-if (-not (Test-Path ".venv")) {
+if (-not (Test-Path ".venv\Scripts\python.exe")) {
     py -3.11 -m venv .venv
 }
 
 $Python = ".venv\Scripts\python.exe"
+& $Python -c "import struct,sys; assert sys.version_info[:2] == (3, 11) and struct.calcsize('P') == 8"
+if ($LASTEXITCODE -ne 0) {
+    throw "The existing .venv is not Python 3.11 x64. Remove .venv and rerun setup."
+}
+
 & $Python -m pip install --upgrade pip
 if ($LASTEXITCODE -ne 0) { throw "pip upgrade failed." }
 
@@ -36,31 +50,27 @@ if ($LASTEXITCODE -ne 0) { throw "pip upgrade failed." }
 if ($LASTEXITCODE -ne 0) { throw "Base dependency installation failed." }
 
 if (-not $CpuOnly) {
-    Write-Host "Installing NVIDIA CUDA 12 runtime wheels (large one-time download; cached after install)..." -ForegroundColor Cyan
-    & $Python -m pip install -r requirements-gpu-windows.txt
-    if ($LASTEXITCODE -ne 0) { throw "NVIDIA runtime installation failed. Rerun with -CpuOnly for CPU mode." }
-}
-
-Write-Host ""
-Write-Host "Checking Python packages..." -ForegroundColor Cyan
-& $Python -c "import faster_whisper, uroman, ctranslate2; print('Faster-Whisper: import OK'); print('uroman: import OK'); print('CTranslate2:', ctranslate2.__version__)"
-if ($LASTEXITCODE -ne 0) { throw "Python package import check failed." }
-
-if (-not $CpuOnly) {
     Write-Host ""
-    Write-Host "Checking CUDA DLL loading and device access..." -ForegroundColor Cyan
-    $CudaCheck = & $Python -c "import os,sysconfig,ctypes; from pathlib import Path; root=Path(sysconfig.get_paths()['platlib'])/'nvidia'; dirs=[root/p/'bin' for p in ('cublas','cuda_runtime','cuda_nvrtc','cudnn')]; handles=[os.add_dll_directory(str(p)) for p in dirs if p.is_dir()]; ctypes.WinDLL(str(root/'cublas'/'bin'/'cublas64_12.dll')); ctypes.WinDLL(str(root/'cudnn'/'bin'/'cudnn64_9.dll')); import ctranslate2; print('CUDA devices:', ctranslate2.get_cuda_device_count()); print('CUDA DLLs loaded successfully')" 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host $CudaCheck -ForegroundColor Green
-    } else {
-        Write-Warning "CUDA runtime DLL check failed:"
-        Write-Warning "$CudaCheck"
-        Write-Warning "Check the Visual C++ 2015-2022 x64 runtime, then rerun setup."
-        Write-Warning "CPU fallback: .\.venv\Scripts\python.exe .\transcribe.py <file> --device cpu --compute-type int8 --model medium"
+    Write-Host "Installing pinned NVIDIA CUDA 12 runtime wheels. This is a large one-time download." -ForegroundColor Cyan
+    & $Python -m pip install -r requirements-gpu-windows.txt
+    if ($LASTEXITCODE -ne 0) { throw "NVIDIA runtime installation failed." }
+
+    Write-Host ""
+    Write-Host "Validating CUDA DLL loading and GPU access..." -ForegroundColor Cyan
+    & $Python .\scripts\check_cuda.py
+    if ($LASTEXITCODE -ne 0) {
+        throw "CUDA validation failed. Check the NVIDIA driver and Microsoft Visual C++ x64 runtime."
     }
+} else {
+    Write-Host ""
+    Write-Host "CPU-only setup selected. Use --device cpu when transcribing." -ForegroundColor Yellow
 }
 
 Write-Host ""
 Write-Host "Setup complete." -ForegroundColor Green
 Write-Host "Activate: .\.venv\Scripts\Activate.ps1"
-Write-Host 'Run: python transcribe.py "D:\Videos\lecture.mp4"'
+if ($CpuOnly) {
+    Write-Host 'Run: .\.venv\Scripts\python.exe .\transcribe.py "D:\Videos\lecture.mp4" --device cpu --compute-type int8 --model medium'
+} else {
+    Write-Host 'Run: .\.venv\Scripts\python.exe .\transcribe.py "D:\Videos\lecture.mp4"'
+}
