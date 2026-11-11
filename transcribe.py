@@ -104,6 +104,10 @@ def main() -> int:
         return 2
 
     output = (args.output or source.with_name(f"{source.stem}_transcript.txt")).expanduser().resolve()
+    if output.suffix.lower() != ".txt":
+        print("Output file must use the .txt extension.", file=sys.stderr)
+        return 2
+
     output.parent.mkdir(parents=True, exist_ok=True)
     compute_type = args.compute_type or ("int8_float16" if args.device == "cuda" else "int8")
     language = None if args.language.strip().lower() == "auto" else args.language.strip().lower()
@@ -130,18 +134,16 @@ def main() -> int:
 
             transcript_parts: list[str] = []
             segment_count = 0
-            last_progress = 0.0
 
-            # Segment timestamps are used only for console progress, never written to the transcript.
+            # Segment positions are shown only as console progress, never written to the transcript.
             for segment in segments:
                 segment_text = segment.text.strip()
                 if segment_text:
                     transcript_parts.append(segment_text)
 
                 segment_count += 1
-                if segment_count % 20 == 0 and segment.end - last_progress >= 0:
+                if segment_count % 20 == 0:
                     print(f"Processed audio: {format_progress(segment.end)}")
-                    last_progress = segment.end
 
             transcript = re.sub(r"\s+", " ", " ".join(transcript_parts)).strip()
             if args.romanize == "auto":
@@ -150,13 +152,7 @@ def main() -> int:
             temporary_output.write_text(transcript + "\n", encoding="utf-8")
             temporary_output.replace(output)
 
-            print(f"Detected language: {info.language} ({info.language_probability:.0%})")
-            if language is not None and info.language != language:
-                print(
-                    f"WARNING: Whisper detected '{info.language}' while '{language}' was requested. "
-                    "Check the source audio language.",
-                    file=sys.stderr,
-                )
+            print(f"Whisper language result: {info.language} ({info.language_probability:.0%})")
             print(f"Saved transcript (plain TXT, no timestamps): {output}")
 
         return 0
