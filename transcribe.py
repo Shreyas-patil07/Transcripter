@@ -1,12 +1,24 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 from pathlib import Path
+
+# Windows Python 3.8+ does not reliably resolve dependent DLLs from PATH.
+# Register NVIDIA wheel DLL directories before importing CTranslate2/Faster-Whisper.
+_WINDOWS_DLL_HANDLES = []
+if os.name == "nt":
+    nvidia_root = Path(sysconfig.get_paths()["platlib"]) / "nvidia"
+    for package in ("cublas", "cuda_runtime", "cuda_nvrtc", "cudnn"):
+        dll_dir = nvidia_root / package / "bin"
+        if dll_dir.is_dir():
+            _WINDOWS_DLL_HANDLES.append(os.add_dll_directory(str(dll_dir)))
 
 from faster_whisper import WhisperModel
 
@@ -47,12 +59,12 @@ def extract_audio(source: Path, destination: Path) -> None:
     ]
     process = subprocess.run(command, capture_output=True, text=True)
     if process.returncode:
-        raise RuntimeError(f"FFmpeg extraction failed:\n{process.stderr.strip()}")
+        raise RuntimeError(f"FFmpeg extraction failed:\\n{process.stderr.strip()}")
 
 
 def romanize_hindi(text: str) -> str:
     """Romanize Devanagari Hindi while leaving existing Latin/English text unchanged."""
-    if not re.search(r"[\u0900-\u097F]", text):
+    if not re.search(r"[\\u0900-\\u097F]", text):
         return text
 
     try:
@@ -101,12 +113,12 @@ def main() -> int:
 
             # Iterating over segments performs the actual transcription.
             transcript_parts = [segment.text.strip() for segment in segments if segment.text.strip()]
-            transcript = re.sub(r"\s+", " ", " ".join(transcript_parts)).strip()
+            transcript = re.sub(r"\\s+", " ", " ".join(transcript_parts)).strip()
 
             if args.romanize == "auto":
                 transcript = romanize_hindi(transcript)
 
-            output.write_text(transcript + "\n", encoding="utf-8")
+            output.write_text(transcript + "\\n", encoding="utf-8")
             print(f"Detected language: {info.language} ({info.language_probability:.0%})")
             print(f"Saved plain TXT without timestamps: {output}")
 
