@@ -2,6 +2,8 @@
 
 A small local helper for turning long videos and audio files into plain-text transcripts. It uses Faster-Whisper, defaults to Hindi transcription in Devanagari, and does not add timestamps or subtitle formatting.
 
+[![CI](https://github.com/Shreyas-patil07/Transcripter/actions/workflows/ci.yml/badge.svg)](https://github.com/Shreyas-patil07/Transcripter/actions/workflows/ci.yml)
+
 ## Features
 
 - Local MP4, MKV, MOV, AVI, WebM, MP3, WAV, M4A, AAC, FLAC and OGG processing.
@@ -81,7 +83,7 @@ Use CPU:
 | English source audio | --language en |
 | Roman Hinglish output | --language hi --romanize auto |
 
-**Transcription is not translation.** Setting --language hi tells Whisper to recognize Hindi speech; it does not translate English or Punjabi speech into Hindi. Hindi-English code-switching, names, poetry, singing, background noise and overlapping speakers can still cause recognition errors. The detected language and confidence are printed after processing.
+**Transcription is not translation.** Setting --language hi tells Whisper to recognize Hindi speech; it does not translate English or Punjabi speech into Hindi. Hindi-English code-switching, names, poetry, singing, background noise and overlapping speakers can still cause recognition errors. Whisper's reported language and confidence are printed after processing.
 
 ## How long videos are handled
 
@@ -133,6 +135,6 @@ The GitHub Actions workflow runs these checks on Windows and Ubuntu.
     ├── requirements-gpu-windows.txt
     └── transcribe.py
 
-## Privacy
+## License
 
-The source audio is processed locally. The first run downloads the selected Whisper model from Hugging Face; model files are cached for later offline use. No audio is sent to an external transcription API.
+MIT. See LICENSE.
