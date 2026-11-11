@@ -1,0 +1,12 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.cache/
+models/
+*.wav
+*.mp3
+*.mp4
+*.mkv
+*_transcript.txt
+.env
