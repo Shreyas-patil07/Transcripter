@@ -38,13 +38,28 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\setup_windows.ps1
 ```
 
-Or set up manually:
+The script creates the virtual environment, installs the pinned dependencies, verifies imports, and checks whether CTranslate2 can see its CUDA compute backend.
+
+Manual setup:
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
+
+## NVIDIA GPU runtime (important)
+
+The NVIDIA driver shown by `nvidia-smi` is not the same thing as the CUDA/cuDNN runtime libraries used by Faster-Whisper. The current Faster-Whisper GPU instructions require **cuBLAS for CUDA 12** and **cuDNN 9 for CUDA 12** on NVIDIA. Install the matching Windows runtime libraries and ensure their DLL folders are on PATH. Then close and reopen PowerShell and rerun:
+```powershell
+.\.venv\Scripts\python.exe -c "import ctranslate2; print(ctranslate2.get_supported_compute_types('cuda'))"
+```
+
+Official references:
+- Faster-Whisper GPU setup: https://github.com/SYSTRAN/faster-whisper#gpu
+- CTranslate2 installation: https://opennmt.net/CTranslate2/installation.html
+
+If the CUDA check fails, you can still use CPU mode while sorting out the GPU runtime (see below).
 
 ## Run
 
@@ -60,9 +75,9 @@ python transcribe.py "D:\Videos\lecture.mp4" --output "D:\Transcripts\lecture.tx
 
 ## Model and hardware settings
 
-Default model is `large-v3-turbo`, CUDA, `int8_float16`, batch size 1. A 4 GB GPU may still run out of VRAM depending on runtime libraries and other GPU use. If loading the default model runs out of memory, try:
+Default model is `large-v3-turbo`, CUDA, `int8_float16`. A 4 GB GPU may still run out of VRAM depending on other GPU use and audio/model settings. If the default model runs out of memory, try:
 ```powershell
-python transcribe.py "D:\Videos\lecture.mp4" --model medium --batch-size 1
+python transcribe.py "D:\Videos\lecture.mp4" --model medium
 ```
 
 CPU fallback:
@@ -80,13 +95,13 @@ For mostly English audio:
 python transcribe.py "D:\Videos\lecture.mp4" --language en
 ```
 
-Leave language unset for automatic detection. Whisper's language selection is not perfect for sentence-by-sentence code-switching between Hindi and English. Automatic detection is a sensible starting point for Hinglish.
+Leave language unset for automatic detection. Whisper selects one primary language; sentence-by-sentence Hindi-English code-switching will not always be recognized perfectly. Automatic detection is a sensible starting point for Hinglish.
 
 ## Roman Hinglish output
 
-Whisper may output Hindi in Devanagari. Transcripter uses **uroman** to convert Devanagari text into Latin script and leaves existing ASCII/English text intact. This is script conversion, not translation. It is a lightweight romanizer and does not require Fairseq, PyTorch, a separate GPU model, or a cloud API.
+Whisper may output Hindi in Devanagari. Transcripter uses **uroman** to convert Devanagari text into Latin script while preserving existing ASCII/English words. This is script conversion, not translation. It is lightweight and does not require Fairseq, PyTorch, a separate GPU model, or a cloud API.
 
-Romanization is not guaranteed to match every person's preferred informal spelling (for example, "hai"/"he"). Proper nouns, technical terms, and code-switched phrases may need manual correction.
+Romanization is not guaranteed to match every person's preferred informal spelling (for example, "hai"/"he"). Proper nouns, technical vocabulary, and code-switched phrases may need manual correction.
 
 To retain Whisper's original script instead:
 ```powershell
@@ -100,8 +115,8 @@ Two-hour files are supported. FFmpeg extracts a temporary 16 kHz mono WAV; Faste
 ## Troubleshooting
 
 - **FFmpeg not found:** install it, add its `bin` folder to PATH and reopen PowerShell.
-- **CUDA/cuDNN DLL error:** Faster-Whisper uses CTranslate2 and needs compatible CUDA/cuDNN runtime DLLs. Follow the CTranslate2 installation guidance for the installed version. An NVIDIA display driver alone may not be sufficient.
-- **CUDA out of memory:** use `--model medium --batch-size 1`; if that fails, use CPU INT8.
+- **CUDA/cuDNN DLL error:** install cuBLAS for CUDA 12 and cuDNN 9 for CUDA 12, then verify the DLL folders are on PATH.
+- **CUDA out of memory:** use `--model medium`; if that fails, use CPU INT8.
 - **uroman import error:** activate `.venv` and run `python -m pip install -r requirements.txt`.
 
 ## Privacy
