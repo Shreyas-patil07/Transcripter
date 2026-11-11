@@ -1,8 +1,8 @@
-$ErrorActionPreference = "Stop"
 param(
     [switch]$CpuOnly
 )
 
+$ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
@@ -28,7 +28,7 @@ if (-not (Test-Path ".venv")) {
     py -3.11 -m venv .venv
 }
 
-$Python = ".venv\\Scripts\\python.exe"
+$Python = ".venv\Scripts\python.exe"
 & $Python -m pip install --upgrade pip
 if ($LASTEXITCODE -ne 0) { throw "pip upgrade failed." }
 
@@ -36,7 +36,7 @@ if ($LASTEXITCODE -ne 0) { throw "pip upgrade failed." }
 if ($LASTEXITCODE -ne 0) { throw "Base dependency installation failed." }
 
 if (-not $CpuOnly) {
-    Write-Host "Installing NVIDIA CUDA 12 runtime wheels (large download, cached after first install)..." -ForegroundColor Cyan
+    Write-Host "Installing NVIDIA CUDA 12 runtime wheels (large one-time download; cached after install)..." -ForegroundColor Cyan
     & $Python -m pip install -r requirements-gpu-windows.txt
     if ($LASTEXITCODE -ne 0) { throw "NVIDIA runtime installation failed. Rerun with -CpuOnly for CPU mode." }
 }
@@ -56,11 +56,11 @@ if (-not $CpuOnly) {
         Write-Warning "CUDA runtime DLL check failed:"
         Write-Warning "$CudaCheck"
         Write-Warning "Check the Visual C++ 2015-2022 x64 runtime, then rerun setup."
-        Write-Warning "CPU fallback: .\\.venv\\Scripts\\python.exe .\\transcribe.py <file> --device cpu --compute-type int8 --model medium"
+        Write-Warning "CPU fallback: .\.venv\Scripts\python.exe .\transcribe.py <file> --device cpu --compute-type int8 --model medium"
     }
 }
 
 Write-Host ""
 Write-Host "Setup complete." -ForegroundColor Green
-Write-Host "Activate: .\\.venv\\Scripts\\Activate.ps1"
-Write-Host 'Run: python transcribe.py "D:\\Videos\\lecture.mp4"'
+Write-Host "Activate: .\.venv\Scripts\Activate.ps1"
+Write-Host 'Run: python transcribe.py "D:\Videos\lecture.mp4"'
