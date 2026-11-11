@@ -1,105 +1,138 @@
 # Transcripter
 
-Offline video/audio transcription to plain-text Hindi in Devanagari, without timestamps.
-
-## Target hardware
-
-Windows 11, Intel i5-12450H, NVIDIA RTX 3050 Laptop GPU (4 GB VRAM), 16 GB RAM.
+A small local helper for turning long videos and audio files into plain-text transcripts. It uses Faster-Whisper, defaults to Hindi transcription in Devanagari, and does not add timestamps or subtitle formatting.
 
 ## Features
 
-- MP4, MKV, MOV, AVI, WebM, MP3, WAV, M4A, AAC, FLAC and OGG input.
-- Local audio extraction with FFmpeg.
-- Transcription with Faster-Whisper.
-- Plain UTF-8 TXT output only; no timestamps or subtitle files.
-- Hindi is the default transcription language; Devanagari is the default output script.
-- Optional Roman Hinglish output with `--romanize auto`.
-- No cloud API or audio upload. Model weights are downloaded once.
+- Local MP4, MKV, MOV, AVI, WebM, MP3, WAV, M4A, AAC, FLAC and OGG processing.
+- Faster-Whisper models, including Large-v3-Turbo.
+- Hindi (hi) and Devanagari output by default.
+- Optional automatic language detection or another Whisper language code.
+- Optional Devanagari-to-Roman transliteration for Roman Hinglish.
+- Plain UTF-8 TXT output with no timestamps.
+- No audio upload, API key or cloud transcription service.
 
-## Prerequisites
+## Quick start — Windows 10/11
 
-1. Install Python 3.11 x64: https://www.python.org/downloads/windows/ (enable Add Python to PATH).
-2. Install FFmpeg and ensure it is on PATH. For example: `winget install Gyan.FFmpeg`
-3. Install a current NVIDIA driver and verify `nvidia-smi`.
-4. Clone:
-   ```powershell
-   git clone https://github.com/Shreyas-patil07/Transcripter.git
-   cd Transcripter
-   ```
+### Requirements
 
-## Setup
+- Python 3.11 x64.
+- FFmpeg installed and available on PATH.
+- An NVIDIA GPU and current driver for GPU mode. CPU mode is also supported.
 
-GPU setup (default; installs NVIDIA CUDA 12 runtime wheels, a large one-time download):
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\setup_windows.ps1
-```
+Install FFmpeg, for example:
 
-CPU-only setup:
-```powershell
-.\scripts\setup_windows.ps1 -CpuOnly
-```
+    winget install Gyan.FFmpeg
 
-The script creates the virtual environment, installs dependencies, and tests CUDA DLL loading. The application automatically registers NVIDIA wheel DLL directories with Python's Windows DLL loader before importing CTranslate2.
+Close and reopen PowerShell, then verify:
 
-## Run
+    py -3.11 --version
+    ffmpeg -version
+    nvidia-smi
 
-Hindi in Devanagari is now the default:
-```powershell
-.\.venv\Scripts\Activate.ps1
-python transcribe.py "D:\Videos\lecture.mp4"
-```
+### Get the repository
 
-This is equivalent to:
-```powershell
-python transcribe.py "D:\Videos\lecture.mp4" --language hi --romanize none
-```
+    git clone https://github.com/Shreyas-patil07/Transcripter.git
+    cd Transcripter
+    Set-ExecutionPolicy -Scope Process Bypass
 
-Output: `lecture_transcript.txt` beside the input file. To choose a destination:
-```powershell
-python transcribe.py "D:\Videos\lecture.mp4" --output "D:\Transcripts\lecture.txt"
-```
+### GPU setup (recommended when using NVIDIA)
 
-## Language options
+    .\scripts\setup_windows.ps1
 
-- Hindi (default, Devanagari): `--language hi`
-- English: `--language en`
-- Automatic language detection: `--language auto`
+The setup script installs the Python dependencies and pinned CUDA 12/cuDNN 9 runtime wheels, then checks that Windows can load the required DLLs and CTranslate2 can see the GPU. The NVIDIA wheel download is large and is needed only once per environment.
 
-Important: `--language hi` tells Whisper that the source audio is Hindi. It does not translate English or Punjabi speech into Hindi. If the audio is actually Punjabi, Urdu, or English, forcing Hindi can reduce accuracy. Check the reported detected language after transcription.
+### CPU-only setup
 
-## Model and hardware settings
+    .\scripts\setup_windows.ps1 -CpuOnly
 
-Default model is `large-v3-turbo`, CUDA, `int8_float16`. A 4 GB GPU may still run out of VRAM depending on other GPU use and audio/model settings. If the default model runs out of memory, try:
-```powershell
-python transcribe.py "D:\Videos\lecture.mp4" --model medium
-```
+The CPU setup skips NVIDIA packages. Use the CPU command shown at the end of setup.
 
-CPU fallback:
-```powershell
-python transcribe.py "D:\Videos\lecture.mp4" --device cpu --compute-type int8 --model medium
-```
+## Transcribe a file
 
-## Roman Hinglish (optional)
+Hindi in Devanagari is the default:
 
-Whisper may output Hindi in Devanagari. To convert it to Roman script:
-```powershell
-python transcribe.py "D:\Videos\lecture.mp4" --language hi --romanize auto
-```
+    .\.venv\Scripts\python.exe .\transcribe.py "D:\Videos\lecture.mp4"
 
-The script uses uroman for script conversion, not translation. Romanization may not match every person's preferred informal spelling.
+The transcript is saved beside the source file as lecture_transcript.txt.
 
-## Long videos
+Choose an output path:
 
-Two-hour files are supported. FFmpeg extracts a temporary 16 kHz mono WAV; Faster-Whisper then processes the audio in segments. Processing time depends on model, audio quality and hardware. Ensure sufficient free disk space for temporary audio. The script deletes temporary WAV data after completion.
+    .\.venv\Scripts\python.exe .\transcribe.py "D:\Videos\lecture.mp4" --output "D:\Transcripts\lecture.txt"
+
+Use a different model:
+
+    # Recommended starting point for supported NVIDIA GPUs
+    python transcribe.py "D:\Videos\lecture.mp4" --model large-v3-turbo
+
+    # Lower VRAM requirement
+    python transcribe.py "D:\Videos\lecture.mp4" --model medium
+
+Use CPU:
+
+    python transcribe.py "D:\Videos\lecture.mp4" --device cpu --compute-type int8 --model medium
+
+## Language and script options
+
+| Goal | Command option |
+|---|---|
+| Hindi source audio, Devanagari output (default) | --language hi --romanize none |
+| Automatic language detection | --language auto |
+| English source audio | --language en |
+| Roman Hinglish output | --language hi --romanize auto |
+
+**Transcription is not translation.** Setting --language hi tells Whisper to recognize Hindi speech; it does not translate English or Punjabi speech into Hindi. Hindi-English code-switching, names, poetry, singing, background noise and overlapping speakers can still cause recognition errors. The detected language and confidence are printed after processing.
+
+## How long videos are handled
+
+The script extracts a temporary 16 kHz mono WAV file with FFmpeg and passes it to Faster-Whisper. Two-hour recordings are supported; processing time depends on the model, audio and hardware. Temporary audio is deleted after the run. Console progress shows processed audio time, but timestamps are never written into the transcript.
+
+Keep enough free disk space for the temporary WAV. A two-hour mono WAV at 16 kHz uses roughly 230 MB.
 
 ## Troubleshooting
 
-- **FFmpeg not found:** install it and reopen PowerShell.
-- **CUDA DLL error:** rerun the GPU setup script. It installs the CUDA 12 runtime wheels and the application registers their DLL directories.
-- **CUDA out of memory:** use `--model medium`; if that fails, use CPU INT8.
-- **Wrong detected language:** specify `--language hi` for actual Hindi audio, or `--language auto` to let Whisper detect the source language.
+**FFmpeg not found**
+
+Install FFmpeg, ensure its bin directory is on PATH, then reopen PowerShell.
+
+**CUDA DLL missing or cannot be loaded**
+
+Rerun .\scripts\setup_windows.ps1. The setup installs the CUDA runtime wheels and runs scripts/check_cuda.py. If validation still fails, verify the NVIDIA driver and the Microsoft Visual C++ 2015–2022 x64 Redistributable. Do not download individual DLLs from third-party DLL sites.
+
+**CUDA out of memory**
+
+Close other GPU-heavy applications and retry with --model medium. If GPU inference remains unavailable, use CPU INT8.
+
+**Hugging Face unauthenticated warning**
+
+Public model downloads do not require a token. The warning is about download rate limits, not transcription correctness.
+
+**Poor recognition or unexpected language**
+
+Try --language auto to let Whisper detect the source language. Do not force Hindi for audio that is actually English or Punjabi. Transcription quality is content-dependent; a larger model cannot guarantee correct lyrics or names.
+
+## Development checks
+
+Install the core dependencies, then run:
+
+    python -m compileall -q transcribe.py scripts tests
+    python -m unittest discover -s tests -v
+
+The GitHub Actions workflow runs these checks on Windows and Ubuntu.
+
+## Project layout
+
+    Transcripter/
+    ├── scripts/
+    │   ├── check_cuda.py
+    │   └── setup_windows.ps1
+    ├── tests/
+    │   └── test_transcribe.py
+    ├── .github/workflows/ci.yml
+    ├── requirements.txt
+    ├── requirements-gpu-windows.txt
+    └── transcribe.py
 
 ## Privacy
 
-Audio processing and romanization are local. No audio is uploaded and no API key is used. The first run downloads the Whisper model weights; subsequent runs can use the cached model offline.
+The source audio is processed locally. The first run downloads the selected Whisper model from Hugging Face; model files are cached for later offline use. No audio is sent to an external transcription API.
